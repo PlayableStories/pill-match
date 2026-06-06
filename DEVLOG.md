@@ -20,9 +20,13 @@ A Match-3 puzzle game where the player follows a **prescription**. At the start 
 
 **Grid:** 8 × 8, cell size 70 px, top-left at (232, 130), center at (512, 410)
 
-**Scoring:** `validMatches.length × 10 × chainMultiplier`. Chain multiplier increments per cascade within one turn.
+**Scoring:** Prescribed (required-color) pills score `count × 10 × chainMultiplier`; each overdose (wrong-color pill cleared) subtracts `OVERDOSE_PENALTY` (20). Score may go negative. Chain multiplier increments per cascade within one turn.
 
-**Moves:** 30 per game. Only decremented on a valid (required-color matched) swap. Game over at 0.
+**Moves:** 60 per game (`INITIAL_MOVES`). Only decremented on a valid (required-color matched) swap. Game over at 0.
+
+**Day structure:** 2 doses per day — Morning then Evening (`DOSES_PER_DAY = 2`). Prescriptions alternate morning (even index) / evening (odd index).
+
+**Win / lose:** Survive `DAYS_TO_SURVIVE = 7` days (through Day 7 evening) with a positive score to win. Lose on negative score, a fatal overdose (overdoses ≥ 2× prescribed pills taken), or running out of moves.
 
 ---
 
@@ -168,5 +172,124 @@ A Match-3 puzzle game where the player follows a **prescription**. At the start 
 - `data` typed as `Partial<GameOverData>` with `?? 0` fallbacks for direct navigation safety
 
 **Dependencies:** imports GameOverData from types.ts
+
+---
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Session 2 — 2026-06-06 (gameplay, menu, overdose system, release)
+# ═══════════════════════════════════════════════════════════════════════════
+
+## [MODIFIED] src/game/main.ts — 2026-06-06
+
+**Why:** The fixed 1024×768 canvas was clipped off-screen when the browser window was resized smaller.
+
+**Key details:**
+- Imported `Scale` from phaser; added `scale: { mode: Scale.FIT, autoCenter: Scale.CENTER_BOTH }` to the game config.
+- FIT scales the entire 1024×768 design proportionally to fit the window (letterboxing as needed) and centers it. All hardcoded coordinates remain valid because FIT scales the whole rendered output, not the world.
+
+**Dependencies:** pairs with the `#game-container` sizing in public/style.css.
+
+**Gotchas / decisions:** FIT measures the parent element, so the parent must have a real size — see the style.css change. Chose FIT over ENVELOP to avoid cropping the play area.
+
+---
+
+## [MODIFIED] public/style.css — 2026-06-06
+
+**Why:** Give Phaser's Scale Manager a real area to measure for FIT mode.
+
+**Key details:** Added `#game-container { width: 100%; height: 100%; }` so the container fills `#app` instead of shrink-wrapping the canvas (a shrink-wrapped parent defeats FIT — the canvas can never shrink below its own size).
+
+---
+
+## [MODIFIED] src/game/scenes/Preloader.ts — 2026-06-06
+
+**Why:** `create()` called `this.scene.start('Game')`, skipping the menu entirely — MainMenu was dead/unreachable code.
+
+**Key details:** Changed to `this.scene.start('MainMenu')`. Scene flow is now Boot → Preloader → MainMenu → Game → GameOver as intended.
+
+---
+
+## [REWRITTEN] src/game/scenes/MainMenu.ts — 2026-06-06
+
+**Why:** Was the stock template ("Main Menu" text + click-anywhere) and was never shown. Built a real title screen.
+
+**Key details:**
+- Dark themed background (0x0d0820) + faded `background` image.
+- Row of bobbing pill sprites. `pillCount` MUST be 5 — only `pill_0`…`pill_4` textures exist (5 colors); a 6th (`pill_5`) renders Phaser's missing-texture placeholder. This was the "rightmost pill renders wrong" bug.
+- ℞ mark, "PILL MATCH" title, italic subtitle.
+- "Survive N days" objective headline where N is the imported `DAYS_TO_SURVIVE` (single source of truth, not a literal).
+- Objective paragraph; the day count is also interpolated from `DAYS_TO_SURVIVE`.
+- START button: rounded rectangle, hover color change, hand cursor, pulse tween → `scene.start('Game')`.
+
+**Dependencies:** imports `DAYS_TO_SURVIVE` from scenes/Game.ts.
+
+**Gotchas / decisions:** Removed the unused `GameObjects` import (was flagged by `tsc --noEmit`).
+
+---
+
+## [MODIFIED] src/game/scenes/Game.ts — 2026-06-06 (several features)
+
+**Why:** Doses-taken breakdown, overdose scoring + danger flash, morning/evening day cycle, more moves, and two new end conditions with win/lose.
+
+**Key details:**
+- **Doses display:** replaced single `dosesCount` with `prescribedDoses` + `overDoses`. The DOSES TAKEN readout renders as `9 + 3` — prescribed count in white (`dosesText`), overdoses in red (`overText`, `"+ N"`). `layoutDosesDisplay()` centers the pair as a group (origin 0,0.5 + dynamic X). Cleared cells are classified by `cell.type === currentRequiredColor()`, captured **before** `advancePrescription()` may change it.
+- **Overdose scoring:** only prescribed pills score (`prescribedThisPop × 10 × chainMultiplier`); each over pill subtracts `OVERDOSE_PENALTY` (20). Removed the old `Math.max(0, …)` clamp so the score can go negative (required for the loss condition).
+- **2 doses/day:** `DOSES_PER_DAY = 2`, `TIMES_OF_DAY = ['Morning','Evening']`. `day = floor(idx / DOSES_PER_DAY) + 1`; top-bar shows `Day N` / time-of-day on two lines; day-advance audio fires every `DOSES_PER_DAY`. Display index clamped to `WEEK_END_INDEX - 1` so it can't flash "Day 8" during the final cascade.
+- **Moves:** `INITIAL_MOVES` 30 → 60.
+- **End conditions** (in `onFallComplete`, before the existing checks): survived the week (`prescriptionIndex >= WEEK_END_INDEX`, where `WEEK_END_INDEX = DAYS_TO_SURVIVE × DOSES_PER_DAY = 14`) and fatal overdose (`isOverdoseFatal()`: `prescribedDoses > 0 && overDoses >= prescribedDoses × 2`). `triggerGameOver(reason)` sets `won = score > 0` and passes `{won, reason}` to GameOver.
+- **Overdose danger flash:** `overFlashTween` pulses `overText` alpha (1 → 0.15, yoyo, loop) when `overDoses > prescribedDoses`; stops + restores alpha otherwise. Driven by `updateOverDangerFlash()` from `layoutDosesDisplay()`.
+- Exported `DAYS_TO_SURVIVE` so MainMenu can stay in sync.
+
+**Dependencies:** imports `GameOverReason` (added to types.ts).
+
+**Gotchas / decisions:**
+- Capture the required color **before** `advancePrescription()` when counting doses.
+- Reset all new fields (`prescribedDoses`, `overDoses`, `overFlashTween`) in `create()` — Phaser reuses the Scene instance across restarts, so stale state/tween refs would otherwise carry over.
+- The overdose guard `prescribedDoses > 0` prevents an instant loss on the very first wrong move (before any prescribed pill is taken).
+
+---
+
+## [MODIFIED] src/game/config/prescriptions.ts — 2026-06-06
+
+**Why:** With 2 doses/day (morning/evening), the old "midday/afternoon" entry no longer fit.
+
+**Key details:** Messages rewritten so EVEN indices are morning doses and ODD indices are evening doses. Pills unchanged. Added a comment documenting the convention: keep an even number of entries so the morning/evening parity stays aligned as the list loops.
+
+---
+
+## [MODIFIED] src/game/types.ts — 2026-06-06
+
+**Why:** Carry the win/lose outcome and end reason from Game → GameOver.
+
+**Key details:** Added `GameOverReason = 'survived' | 'overdose' | 'outOfMoves'`. `GameOverData` gains `won: boolean` (true if final score is positive) and `reason: GameOverReason`.
+
+---
+
+## [REWRITTEN] src/game/scenes/GameOver.ts — 2026-06-06
+
+**Why:** Declare WIN or LOSE based on score, explain how the game ended, and add Main Menu navigation.
+
+**Key details:**
+- Headline "YOU WIN" (green) when `won`, else "YOU LOSE" (red); `won` falls back to `score > 0` for direct navigation.
+- `reasonText()` returns a flavor line per `GameOverReason` (surviving the week with a negative score still reads as a loss).
+- Score tinted red when negative.
+- PLAY AGAIN → `scene.start('Game')`; added MAIN MENU → `scene.start('MainMenu')`.
+
+**Dependencies:** imports `GameOverData`, `GameOverReason` from types.ts.
+
+---
+
+## [RELEASE] README, LICENSE, package.json, screenshot, git — 2026-06-06
+
+**Why:** Prepare the project for public release under the PlayableStories GitHub org.
+
+**Key details:**
+- **README.md:** full rewrite (was the stock Phaser template) — concept, how to play, scoring, win/lose, features, tech stack, getting started (⚠️ Node 18+), configuration/tuning (prescriptions + balance constants), project structure, credits, MIT.
+- **screenshot.png:** replaced the template image with a real in-game capture.
+- **LICENSE:** copyright changed to "2026 William Wong" (was Phaser Studio Inc).
+- **package.json:** `name` → `pill-match`, `version` → 1.0.0, real description, `author` William Wong, repository/bugs/homepage → `github.com/PlayableStories/pill-match`.
+- **Git:** `git init` on `main`; published to https://github.com/PlayableStories/pill-match (public) via `gh`, with description and topics (game, puzzle-game, match-3, phaser, phaser4, typescript, vite, html5-game, browser-game, webgl).
+
+**Gotchas / decisions:** Node 14 is the system default but too old for Vite 6 (`||=` syntax error); dev/build require Node 18+ (use nvm `nvm use 24`).
 
 ---
