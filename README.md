@@ -174,7 +174,8 @@ cd pill-match && npm install && npm run dev   # Node 18+
 | `src/game/config/prescriptions.ts` | Prescription definitions |
 | `src/game/types.ts` | Shared TypeScript types |
 | `public/` | Static assets served as-is |
-| `FORKING.md` | Forking guide — reskin, re-mechanic, or rebuild from an AI-builder prompt |
+| `FORKING.md` | Forking guide — Level 1 (reskin / re-mechanic) and a pointer to Level 2 |
+| `REFERENCE_PROMPT.md` | Level 2 — self-contained AI-builder prompt to rebuild the game |
 | `DEVLOG.md` | Detailed development log of each file and decision |
 
 ---
