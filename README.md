@@ -137,71 +137,25 @@ Upload the contents of `dist/` to any static web host to deploy.
 
 ## ⚙️ Configuration & Tuning
 
-Game balance lives in a few easy-to-edit places:
+Game balance, theme, on-screen text, and HUD toggles all live in one place — the `CONFIG` object in **`src/game/config/gameConfig.ts`** — and the dialog messages and dose orders live in **`src/game/config/prescriptions.ts`**. No scene code required.
 
-**Prescriptions** — `src/game/config/prescriptions.ts`
-Add, edit, or reorder the doses. Even-indexed entries are morning doses, odd-indexed are evening; keep an even number of entries so the pattern stays aligned. Each entry is a message and an ordered list of 1–3 pill colors (`0=red 1=blue 2=yellow 3=green 4=white`).
-
-**Balance constants** — top of `src/game/scenes/Game.ts`
-
-| Constant | Default | Meaning |
-|---|---|---|
-| `INITIAL_MOVES` | `60` | Moves allowed before game over |
-| `DOSES_PER_DAY` | `2` | Doses per day (morning / evening) |
-| `DAYS_TO_SURVIVE` | `7` | Days to survive to win |
-| `OVERDOSE_PENALTY` | `20` | Points lost per overdose pill |
+See **[FORKING.md](FORKING.md)** for the full breakdown of every config section.
 
 ---
 
 ## 🍴 Fork It & Tell Your Own Story
 
-The engine is intentionally decoupled from the story it tells, so Pill Match is a good starting point for telling a **different** story with the same mechanics. There are two levels of forking, depending on how far you want to go.
+Pill Match is a good base for telling a **different** story with the same mechanics. There are two ways in:
+
+- **Level 1 — fork the code:** reskin via config, or change the mechanics in engine code.
+- **Level 2 — rebuild from a prompt:** recreate the game (or your own variant) by describing it to an AI builder.
 
 ```bash
-# Fork on GitHub (the "Fork" button), or with the GitHub CLI:
 gh repo fork PlayableStories/pill-match --clone
-
-cd pill-match
-npm install      # Node 18+
-npm run dev      # http://localhost:8080
+cd pill-match && npm install && npm run dev   # Node 18+
 ```
 
-### Level 1 — Re-theme / Re-skin *(no engine code)*
-
-Almost everything you need to reskin or re-balance the game lives in **two config files** — change them and the whole game follows, no scene logic required.
-
-**`src/game/config/gameConfig.ts`** — a single `CONFIG` object grouped into sections:
-
-| Section | Controls |
-|---|---|
-| `rules` | Days to survive, doses per day, moves per game, score per dose, overdose penalty, fatal-overdose multiplier, win-score threshold, match length, shuffle threshold |
-| `board` | Grid rows/cols, cell size, origin, token scale |
-| `tokens` | The five tokens — `name`, `fill`, `highlight`, `labelColor` (rename / recolor the "pills") |
-| `tokenShape` | `'capsule'`, `'circle'`, or `'roundedSquare'` |
-| `theme` | Background colors and accent / subtle / danger colors |
-| `display` | Toggle each HUD element — doses, overdose, target, moves |
-| `text` | **Every on-screen string** — title, HUD labels, menu copy, game-over headlines & reasons, button labels |
-
-**`src/game/config/prescriptions.ts`** — the dialog messages and the dose orders (which token, in which order, each day).
-
-> Keep the `tokens` list at **5 entries** — token indices are typed (`PillType = 0|1|2|3|4`). You can restyle them freely; changing how *many* there are is a Level 2 change.
-
-A good first exercise: open `gameConfig.ts`, change `daysToSurvive`, recolor and rename a couple of `tokens`, rewrite the `text`, and reorder a few `prescriptions` — and watch the same mechanics carry a completely different meaning, all without touching engine code.
-
-### Level 2 — Re-mechanic *(engine code)*
-
-Change how the game *plays and argues* — this is where you reshape the procedural message itself:
-
-| To change… | Edit… |
-|---|---|
-| **Number of token types**, new match rules, board behavior | `src/game/PillGrid.ts`, `src/game/types.ts` (`PillType`) |
-| **Scoring model & win/lose conditions** | `src/game/scenes/Game.ts` (`processMatches`, `onFallComplete`, `triggerGameOver`, `isOverdoseFatal`) |
-| **New end states / reasons** | `src/game/types.ts` (`GameOverReason`) + `Game.ts` + `GameOver.ts` |
-| **Token rendering / shapes / image assets** | `src/game/PillTextures.ts` |
-| **Sound** | `src/game/PillAudio.ts` |
-| **New scenes or flow** | `src/game/main.ts` (scene list) + `src/game/scenes/` |
-
-> 📓 `DEVLOG.md` documents every file and the reasoning behind each decision — read it before making Level 2 changes. Pull requests and forks are welcome.
+**→ See [FORKING.md](FORKING.md) for the full guide** — the central `gameConfig.ts`, where to change the mechanics, and a ready-to-paste AI-builder prompt.
 
 ---
 
@@ -216,9 +170,12 @@ Change how the game *plays and argues* — this is where you reshape the procedu
 | `src/game/PillGrid.ts` | Grid data + sprite management (match/gravity/refill) |
 | `src/game/PillTextures.ts` | Programmatic pill texture generation |
 | `src/game/PillAudio.ts` | Sound effects |
+| `src/game/config/gameConfig.ts` | Central config — rules, board, tokens, theme, text, display toggles |
 | `src/game/config/prescriptions.ts` | Prescription definitions |
 | `src/game/types.ts` | Shared TypeScript types |
 | `public/` | Static assets served as-is |
+| `FORKING.md` | Forking guide — Level 1 (reskin / re-mechanic) and a pointer to Level 2 |
+| `REFERENCE_PROMPT.md` | Level 2 — self-contained AI-builder prompt to rebuild the game |
 | `DEVLOG.md` | Detailed development log of each file and decision |
 
 ---
