@@ -6,6 +6,10 @@ export interface Prescription {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// This file defines the dialog messages and dose orders. For everything else
+// (rules, board, token colors/names, theme, UI text, display toggles) see
+// ./gameConfig.ts.
+//
 // Edit this array to define all prescription pop-ups.
 //
 // Each entry needs:

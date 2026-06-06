@@ -1,5 +1,5 @@
 import { Scene } from 'phaser';
-import { DAYS_TO_SURVIVE } from './Game';
+import { CONFIG } from '../config/gameConfig';
 
 export class MainMenu extends Scene
 {
@@ -10,13 +10,14 @@ export class MainMenu extends Scene
 
     create ()
     {
+        const days = String(CONFIG.rules.daysToSurvive);
+
         //  Themed dark background, consistent with the GameOver scene
-        this.cameras.main.setBackgroundColor(0x0d0820);
+        this.cameras.main.setBackgroundColor(CONFIG.theme.menuBackground);
         this.add.image(512, 384, 'background').setAlpha(0.12);
 
-        //  Decorative row of pills along the top, gently bobbing.
-        //  There are 5 pill colors (textures pill_0 … pill_4).
-        const pillCount = 5;
+        //  Decorative row of tokens along the top, gently bobbing — one per color.
+        const pillCount = CONFIG.tokens.length;
         const spacing = 96;
         const startX = 512 - ((pillCount - 1) * spacing) / 2;
 
@@ -43,28 +44,26 @@ export class MainMenu extends Scene
         }).setOrigin(0.5);
 
         //  Game title
-        this.add.text(512, 332, 'PILL MATCH', {
+        this.add.text(512, 332, CONFIG.text.title, {
             fontFamily: 'Arial Black', fontSize: '84px', color: '#ffffff',
             stroke: '#000000', strokeThickness: 10,
         }).setOrigin(0.5);
 
-        this.add.text(512, 392, 'A Prescription Match-3', {
+        this.add.text(512, 392, CONFIG.text.menu.subtitle, {
             fontFamily: 'Arial', fontSize: '24px', color: '#9aa0d4',
             fontStyle: 'italic',
         }).setOrigin(0.5);
 
-        //  Objective headline
-        this.add.text(512, 452, `Survive ${DAYS_TO_SURVIVE} days`, {
-            fontFamily: 'Arial Black', fontSize: '34px', color: '#ffdd00',
+        //  Objective headline ({days} → daysToSurvive)
+        this.add.text(512, 452, CONFIG.text.menu.objectiveHeadline.replace(/\{days\}/g, days), {
+            fontFamily: 'Arial Black', fontSize: '34px', color: CONFIG.theme.accent,
             stroke: '#000000', strokeThickness: 6,
         }).setOrigin(0.5);
 
-        //  Brief objective
+        //  Brief objective ({days} → daysToSurvive)
         this.add.text(
             512, 512,
-            'Take your medicine exactly as prescribed — match only the pill\n' +
-            'the doctor ordered, in the right order. Make it through all\n' +
-            `${DAYS_TO_SURVIVE} days without overdosing on the wrong pills.`,
+            CONFIG.text.menu.objectiveBody.replace(/\{days\}/g, days),
             {
                 fontFamily: 'Arial', fontSize: '22px', color: '#d7dbff',
                 align: 'center', lineSpacing: 8,
@@ -87,7 +86,7 @@ export class MainMenu extends Scene
             .setStrokeStyle(4, 0x000000)
             .setInteractive({ useHandCursor: true });
 
-        const label = this.add.text(x, y, 'START', {
+        const label = this.add.text(x, y, CONFIG.text.menu.startButton, {
             fontFamily: 'Arial Black', fontSize: '36px', color: '#ffffff',
             stroke: '#000000', strokeThickness: 5,
         }).setOrigin(0.5);
