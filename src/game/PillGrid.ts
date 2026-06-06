@@ -1,11 +1,12 @@
 import { Scene } from 'phaser';
 import { PillType, PillCell, Grid } from './types';
+import { CONFIG, COLOR_COUNT } from './config/gameConfig';
 
-export const GRID_ROWS = 8;
-export const GRID_COLS = 8;
-export const CELL_SIZE = 70;
-export const GRID_ORIGIN_X = 232;   // pixel x of left edge of col 0
-export const GRID_ORIGIN_Y = 130;   // pixel y of top edge of row 0
+export const GRID_ROWS = CONFIG.board.rows;
+export const GRID_COLS = CONFIG.board.cols;
+export const CELL_SIZE = CONFIG.board.cellSize;
+export const GRID_ORIGIN_X = CONFIG.board.originX;   // pixel x of left edge of col 0
+export const GRID_ORIGIN_Y = CONFIG.board.originY;   // pixel y of top edge of row 0
 
 export interface FallItem {
     sprite: Phaser.GameObjects.Sprite;
@@ -41,7 +42,7 @@ export class PillGrid {
             for (let col = 0; col < GRID_COLS; col++) {
                 let type: PillType;
                 do {
-                    type = (Math.floor(Math.random() * 5)) as PillType;
+                    type = (Math.floor(Math.random() * COLOR_COUNT)) as PillType;
                 } while (
                     (col >= 2 &&
                         this.grid[row][col - 1]?.type === type &&
@@ -58,7 +59,7 @@ export class PillGrid {
     private spawnCell(row: number, col: number, type: PillType): PillCell {
         const { x, y } = cellToWorld(row, col);
         const sprite = this.scene.add.sprite(x, y, `pill_${type}`);
-        sprite.setScale(0.85);
+        sprite.setScale(CONFIG.board.tokenScale);
         sprite.setInteractive();
 
         const cell: PillCell = { type, sprite, row, col, matched: false };
@@ -74,7 +75,7 @@ export class PillGrid {
     private spawnCellAt(col: number, pixelY: number, type: PillType): PillCell {
         const { x } = cellToWorld(0, col);
         const sprite = this.scene.add.sprite(x, pixelY, `pill_${type}`);
-        sprite.setScale(0.85);
+        sprite.setScale(CONFIG.board.tokenScale);
         sprite.setInteractive();
 
         // row/col will be set by the caller before returning
@@ -103,7 +104,7 @@ export class PillGrid {
                 const cur = c < GRID_COLS ? this.grid[r][c]?.type : -1;
                 const start = this.grid[r][runStart]?.type;
                 if (cur !== start) {
-                    if (c - runStart >= 3) {
+                    if (c - runStart >= CONFIG.rules.minMatchLength) {
                         for (let k = runStart; k < c; k++) mark(r, k);
                     }
                     runStart = c;
@@ -118,7 +119,7 @@ export class PillGrid {
                 const cur = r < GRID_ROWS ? this.grid[r][c]?.type : -1;
                 const start = this.grid[runStart][c]?.type;
                 if (cur !== start) {
-                    if (r - runStart >= 3) {
+                    if (r - runStart >= CONFIG.rules.minMatchLength) {
                         for (let k = runStart; k < r; k++) mark(k, c);
                     }
                     runStart = r;
@@ -171,7 +172,7 @@ export class PillGrid {
             let spawnCount = 0;
             for (let row = 0; row < GRID_ROWS; row++) {
                 if (this.grid[row][col] === null) {
-                    const type = (Math.floor(Math.random() * 5)) as PillType;
+                    const type = (Math.floor(Math.random() * COLOR_COUNT)) as PillType;
                     const spawnY = GRID_ORIGIN_Y - (spawnCount + 1) * CELL_SIZE;
                     const cell = this.spawnCellAt(col, spawnY, type);
                     cell.row = row;

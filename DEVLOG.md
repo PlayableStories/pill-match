@@ -293,3 +293,43 @@ A Match-3 puzzle game where the player follows a **prescription**. At the start 
 **Gotchas / decisions:** Node 14 is the system default but too old for Vite 6 (`||=` syntax error); dev/build require Node 18+ (use nvm `nvm use 24`).
 
 ---
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Session 3 — 2026-06-06 (Level 1 forking: central config / reskin)
+# ═══════════════════════════════════════════════════════════════════════════
+
+## [CREATED] src/game/config/gameConfig.ts — 2026-06-06
+
+**Why:** Centralize everything a re-theme / re-skin needs into one file so forkers don't hunt through scene code. Backs "Level 1" forking in the README.
+
+**Key details:**
+- Exports a single `CONFIG: GameConfig` object grouped into: `rules` (movesPerGame, dosesPerDay, daysToSurvive, scorePerDose, overdosePenalty, fatalOverdoseMultiplier, winScoreThreshold, minMatchLength, shuffleAfterWrongMoves), `board` (rows, cols, cellSize, originX/Y, tokenScale), `tokens` (5 × {name, fill, highlight, labelColor}), `tokenShape`, `theme` (background/accent/subtle/over colors), `display` (showDoses/showOverdose/showTarget/showMoves), `timesOfDay`, and `text` (title, hud labels, shuffleMessage, menu copy, gameOver headlines/reasons/buttons).
+- Derived exports: `COLOR_COUNT = tokens.length`, `WEEK_END_INDEX = daysToSurvive × dosesPerDay`.
+- `objectiveHeadline` / `objectiveBody` support a `{days}` placeholder.
+
+**Gotchas / decisions:** Token count stays 5 — `PillType` remains the literal union `0|1|2|3|4`; the tokens list MUST keep length 5. `timesOfDay` length should equal `dosesPerDay`. No `as const`, so forkers can edit values freely.
+
+---
+
+## [MODIFIED] PillGrid.ts, PillTextures.ts, Game.ts, MainMenu.ts, GameOver.ts, prescriptions.ts — 2026-06-06
+
+**Why:** Point all the previously-hardcoded magic numbers and string literals at `CONFIG`, with behavior unchanged by default.
+
+**Key details:**
+- **PillGrid.ts:** the exported `GRID_*`/`CELL_SIZE` constants now derive from `CONFIG.board`; random spawn uses `COLOR_COUNT`; token scale from `CONFIG.board.tokenScale`; match runs use `CONFIG.rules.minMatchLength`.
+- **PillTextures.ts:** colors/count from `CONFIG.tokens`; new `traceTokenPath()` switch on `CONFIG.tokenShape` (`capsule` | `circle` | `roundedSquare`).
+- **Game.ts:** all former module consts (INITIAL_MOVES, OVERDOSE_PENALTY, DOSES_PER_DAY, TIMES_OF_DAY, DAYS_TO_SURVIVE, WEEK_END_INDEX, PILL_NAMES, PILL_LABEL_COLORS) replaced with `CONFIG`/derived references; scoring, fatal-overdose, win threshold, shuffle threshold, day labels, background, and all HUD text from `CONFIG`. **Display toggles**: `dosesText`/`overText`/`requiredPillIcon`/`movesText` are now optional and guarded behind `CONFIG.display.*`; `layoutDosesDisplay`/`updateOverDangerFlash`/`updateUI` null-guard them. New **MOVES** HUD (far right, directly under the doses counter at x=864, y≈140/172), updated in `updateUI`.
+- **MainMenu.ts / GameOver.ts:** text + theme from `CONFIG` (`{days}` interpolated). MainMenu now imports `CONFIG` instead of `DAYS_TO_SURVIVE` from Game (that export was removed).
+- **prescriptions.ts:** comment pointing to `gameConfig.ts`.
+
+**Gotchas / decisions:** Optional HUD fields are reset to `undefined` in `create()` (Scene instance persists across restarts → stale destroyed refs otherwise). `showMoves` defaults to **true** (the reviewed/approved placement).
+
+---
+
+## [MODIFIED] README.md — 2026-06-06
+
+**Why:** Document the new two-level forking model.
+
+**Key details:** Reworked "Fork It & Tell Your Own Story" into **Level 1 — Re-theme / Re-skin** (edit `gameConfig.ts` + `prescriptions.ts`, with a section table) and **Level 2 — Re-mechanic** (engine code, with a where-to-edit table). Updated the guidance to lead with the central config file.
+
+---

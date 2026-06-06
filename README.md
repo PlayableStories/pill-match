@@ -155,9 +155,7 @@ Add, edit, or reorder the doses. Even-indexed entries are morning doses, odd-ind
 
 ## 🍴 Fork It & Tell Your Own Story
 
-The engine is intentionally decoupled from the story it tells. The Match-3 board, scoring, and day cycle are generic — the *meaning* lives in the prescriptions, the copy, and a handful of constants. That makes Pill Match a good starting point for telling a **different** story with the same mechanics (a different health message, a routine, a habit — anything that maps onto "do the right thing in the right order, and don't overdo it").
-
-### Fork and run
+The engine is intentionally decoupled from the story it tells, so Pill Match is a good starting point for telling a **different** story with the same mechanics. There are two levels of forking, depending on how far you want to go.
 
 ```bash
 # Fork on GitHub (the "Fork" button), or with the GitHub CLI:
@@ -168,20 +166,42 @@ npm install      # Node 18+
 npm run dev      # http://localhost:8080
 ```
 
-### Where to start changing things
+### Level 1 — Re-theme / Re-skin *(no engine code)*
+
+Almost everything you need to reskin or re-balance the game lives in **two config files** — change them and the whole game follows, no scene logic required.
+
+**`src/game/config/gameConfig.ts`** — a single `CONFIG` object grouped into sections:
+
+| Section | Controls |
+|---|---|
+| `rules` | Days to survive, doses per day, moves per game, score per dose, overdose penalty, fatal-overdose multiplier, win-score threshold, match length, shuffle threshold |
+| `board` | Grid rows/cols, cell size, origin, token scale |
+| `tokens` | The five tokens — `name`, `fill`, `highlight`, `labelColor` (rename / recolor the "pills") |
+| `tokenShape` | `'capsule'`, `'circle'`, or `'roundedSquare'` |
+| `theme` | Background colors and accent / subtle / danger colors |
+| `display` | Toggle each HUD element — doses, overdose, target, moves |
+| `text` | **Every on-screen string** — title, HUD labels, menu copy, game-over headlines & reasons, button labels |
+
+**`src/game/config/prescriptions.ts`** — the dialog messages and the dose orders (which token, in which order, each day).
+
+> Keep the `tokens` list at **5 entries** — token indices are typed (`PillType = 0|1|2|3|4`). You can restyle them freely; changing how *many* there are is a Level 2 change.
+
+A good first exercise: open `gameConfig.ts`, change `daysToSurvive`, recolor and rename a couple of `tokens`, rewrite the `text`, and reorder a few `prescriptions` — and watch the same mechanics carry a completely different meaning, all without touching engine code.
+
+### Level 2 — Re-mechanic *(engine code)*
+
+Change how the game *plays and argues* — this is where you reshape the procedural message itself:
 
 | To change… | Edit… |
 |---|---|
-| **The story** — dialog, dose order, regimen | `src/game/config/prescriptions.ts` |
-| **The pacing & stakes** — days, doses/day, moves, penalty | constants at the top of `src/game/scenes/Game.ts` |
-| **The win/lose framing & end screen** | `src/game/scenes/Game.ts` (`triggerGameOver`) and `src/game/scenes/GameOver.ts` |
-| **The look** — pill colors & shapes | `src/game/PillTextures.ts` |
-| **The sound** | `src/game/PillAudio.ts` |
-| **The title screen & objective text** | `src/game/scenes/MainMenu.ts` |
+| **Number of token types**, new match rules, board behavior | `src/game/PillGrid.ts`, `src/game/types.ts` (`PillType`) |
+| **Scoring model & win/lose conditions** | `src/game/scenes/Game.ts` (`processMatches`, `onFallComplete`, `triggerGameOver`, `isOverdoseFatal`) |
+| **New end states / reasons** | `src/game/types.ts` (`GameOverReason`) + `Game.ts` + `GameOver.ts` |
+| **Token rendering / shapes / image assets** | `src/game/PillTextures.ts` |
+| **Sound** | `src/game/PillAudio.ts` |
+| **New scenes or flow** | `src/game/main.ts` (scene list) + `src/game/scenes/` |
 
-A good first exercise: open `prescriptions.ts`, rewrite the messages and pill orders to a story of your own, and watch the same mechanics carry a completely different meaning — no engine code required.
-
-> 📓 `DEVLOG.md` documents every file and the reasoning behind each decision — read it before making deeper changes. Pull requests and forks are welcome.
+> 📓 `DEVLOG.md` documents every file and the reasoning behind each decision — read it before making Level 2 changes. Pull requests and forks are welcome.
 
 ---
 

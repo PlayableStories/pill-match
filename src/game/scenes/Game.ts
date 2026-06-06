@@ -2,17 +2,8 @@ import { Scene } from 'phaser';
 import { PillGrid, GRID_ROWS, GRID_COLS, cellToWorld, FallItem } from '../PillGrid';
 import { GameState, GameOverData, GameOverReason, PillType } from '../types';
 import { PRESCRIPTIONS } from '../config/prescriptions';
+import { CONFIG, WEEK_END_INDEX } from '../config/gameConfig';
 import { PillAudio } from '../PillAudio';
-
-const INITIAL_MOVES = 60;
-const OVERDOSE_PENALTY = 20;
-const DOSES_PER_DAY = 2;
-const TIMES_OF_DAY = ['Morning', 'Evening'];
-export const DAYS_TO_SURVIVE = 7;
-//  Doses completed once the player survives the full week (day 7 evening).
-const WEEK_END_INDEX = DAYS_TO_SURVIVE * DOSES_PER_DAY;
-const PILL_NAMES = ['red', 'blue', 'yellow', 'green', 'white'];
-const PILL_LABEL_COLORS = ['#ff6666', '#6688ff', '#ffee44', '#66dd66', '#e8e8e8'];
 
 export class Game extends Scene
 {
@@ -24,10 +15,11 @@ export class Game extends Scene
     private overDoses = 0;
 
     private daysText!: Phaser.GameObjects.Text;
-    private dosesText!: Phaser.GameObjects.Text;
-    private overText!: Phaser.GameObjects.Text;
+    private dosesText?: Phaser.GameObjects.Text;
+    private overText?: Phaser.GameObjects.Text;
     private overFlashTween?: Phaser.Tweens.Tween;
-    private requiredPillIcon!: Phaser.GameObjects.Sprite;
+    private movesText?: Phaser.GameObjects.Text;
+    private requiredPillIcon?: Phaser.GameObjects.Sprite;
     private selectionIndicator!: Phaser.GameObjects.Graphics;
     private dialogContainer!: Phaser.GameObjects.Container;
     private shuffleText!: Phaser.GameObjects.Text;
@@ -40,12 +32,12 @@ export class Game extends Scene
 
     create ()
     {
-        this.cameras.main.setBackgroundColor(0x1a0a2e);
+        this.cameras.main.setBackgroundColor(CONFIG.theme.gameBackground);
 
         this.state = {
             phase: 'dialog',
             score: 0,
-            moves: INITIAL_MOVES,
+            moves: CONFIG.rules.movesPerGame,
             chainMultiplier: 1,
             selected: null,
             prescription: { prescriptionIndex: 0, stepIndex: 0 },
@@ -55,6 +47,10 @@ export class Game extends Scene
         this.prescribedDoses = 0;
         this.overDoses = 0;
         this.overFlashTween = undefined;
+        this.dosesText = undefined;
+        this.overText = undefined;
+        this.movesText = undefined;
+        this.requiredPillIcon = undefined;
 
         this.buildUI();
         this.buildSelectionIndicator();
@@ -74,50 +70,75 @@ export class Game extends Scene
     // ── UI ────────────────────────────────────────────────────────────────────
 
     private buildUI(): void {
-        this.add.rectangle(512, 59, 1024, 118, 0x0d0820, 0.92);
+        const { theme, text, display } = CONFIG;
 
-        this.daysText = this.add.text(160, 80, 'Day 1\nMorning', {
+        this.add.rectangle(512, 59, 1024, 118, theme.topBarColor, 0.92);
+
+        this.daysText = this.add.text(160, 80, '', {
             fontFamily: 'Arial Black', fontSize: '22px', color: '#ffffff',
             stroke: '#000000', strokeThickness: 4,
             align: 'center',
         }).setOrigin(0.5);
 
-        this.add.text(512, 30, 'PILL MATCH', {
-            fontFamily: 'Arial Black', fontSize: '26px', color: '#ffdd00',
+        this.add.text(512, 30, text.title, {
+            fontFamily: 'Arial Black', fontSize: '26px', color: theme.accent,
             stroke: '#000000', strokeThickness: 5,
         }).setOrigin(0.5);
 
-        this.add.text(512, 72, 'TARGET', {
-            fontFamily: 'Arial Black', fontSize: '13px', color: '#aaaaff',
-        }).setOrigin(0.5);
-        this.requiredPillIcon = this.add.sprite(512, 95, 'pill_0');
-        this.requiredPillIcon.setScale(0.45);
+        if (display.showTarget) {
+            this.add.text(512, 72, text.hud.targetLabel, {
+                fontFamily: 'Arial Black', fontSize: '13px', color: theme.subtle,
+            }).setOrigin(0.5);
+            this.requiredPillIcon = this.add.sprite(512, 95, 'pill_0');
+            this.requiredPillIcon.setScale(0.45);
+        }
 
-        this.add.text(864, 30, 'DOSES TAKEN', {
-            fontFamily: 'Arial Black', fontSize: '16px', color: '#aaaaff',
-        }).setOrigin(0.5);
-        //  Prescribed doses (white) and over/extra doses (red), e.g. "9 + 3"
-        this.dosesText = this.add.text(864, 80, '0', {
-            fontFamily: 'Arial Black', fontSize: '34px', color: '#ffffff',
-            stroke: '#000000', strokeThickness: 4,
-        }).setOrigin(0, 0.5);
-        this.overText = this.add.text(864, 80, '+ 0', {
-            fontFamily: 'Arial Black', fontSize: '34px', color: '#ff5555',
-            stroke: '#000000', strokeThickness: 4,
-        }).setOrigin(0, 0.5);
-        this.layoutDosesDisplay();
+        if (display.showDoses) {
+            this.add.text(864, 30, text.hud.dosesLabel, {
+                fontFamily: 'Arial Black', fontSize: '16px', color: theme.subtle,
+            }).setOrigin(0.5);
+            //  Prescribed doses (white) and over/extra doses (red), e.g. "9 + 3"
+            this.dosesText = this.add.text(864, 80, '0', {
+                fontFamily: 'Arial Black', fontSize: '34px', color: '#ffffff',
+                stroke: '#000000', strokeThickness: 4,
+            }).setOrigin(0, 0.5);
+            if (display.showOverdose) {
+                this.overText = this.add.text(864, 80, '+ 0', {
+                    fontFamily: 'Arial Black', fontSize: '34px', color: theme.overColor,
+                    stroke: '#000000', strokeThickness: 4,
+                }).setOrigin(0, 0.5);
+            }
+        }
+
+        //  Moves remaining — far right, directly under the doses counter
+        if (display.showMoves) {
+            this.add.text(864, 140, text.hud.movesLabel, {
+                fontFamily: 'Arial Black', fontSize: '16px', color: theme.subtle,
+            }).setOrigin(0.5);
+            this.movesText = this.add.text(864, 172, '', {
+                fontFamily: 'Arial Black', fontSize: '34px', color: '#ffffff',
+                stroke: '#000000', strokeThickness: 4,
+            }).setOrigin(0.5);
+        }
+
+        this.updateUI();
     }
 
     /** Renders "prescribed + over" centered under the DOSES TAKEN header. */
     private layoutDosesDisplay(): void {
+        if (!this.dosesText) return;
         this.dosesText.setText(String(this.prescribedDoses));
-        this.overText.setText(`+ ${this.overDoses}`);
 
-        const gap = 8;
-        const totalW = this.dosesText.width + gap + this.overText.width;
-        const left = 864 - totalW / 2;
-        this.dosesText.setX(left);
-        this.overText.setX(left + this.dosesText.width + gap);
+        if (this.overText) {
+            this.overText.setText(`+ ${this.overDoses}`);
+            const gap = 8;
+            const totalW = this.dosesText.width + gap + this.overText.width;
+            const left = 864 - totalW / 2;
+            this.dosesText.setX(left);
+            this.overText.setX(left + this.dosesText.width + gap);
+        } else {
+            this.dosesText.setX(864 - this.dosesText.width / 2);
+        }
 
         this.updateOverDangerFlash();
     }
@@ -125,6 +146,7 @@ export class Game extends Scene
     /** Flashes the "+ N" overdose readout once overdoses exceed prescribed pills,
      *  warning that a fatal overdose (double prescribed) is approaching. */
     private updateOverDangerFlash(): void {
+        if (!this.overText) return;
         const danger = this.overDoses > this.prescribedDoses;
 
         if (danger && !this.overFlashTween) {
@@ -158,8 +180,8 @@ export class Game extends Scene
     }
 
     private buildShuffleText(): void {
-        this.shuffleText = this.add.text(512, 384, 'I am confused,\nthey are probably in another drawer.', {
-            fontFamily: 'Arial', fontSize: '26px', color: '#ffdd00',
+        this.shuffleText = this.add.text(512, 384, CONFIG.text.shuffleMessage, {
+            fontFamily: 'Arial', fontSize: '26px', color: CONFIG.theme.accent,
             stroke: '#000000', strokeThickness: 5,
             align: 'center',
         }).setOrigin(0.5).setAlpha(0).setDepth(50);
@@ -169,13 +191,20 @@ export class Game extends Scene
         //  Clamp to the last dose of the week so the header never shows a day
         //  beyond the survival goal during the final cascade.
         const idx = Math.min(this.state.prescription.prescriptionIndex, WEEK_END_INDEX - 1);
-        const day = Math.floor(idx / DOSES_PER_DAY) + 1;
-        const timeOfDay = TIMES_OF_DAY[idx % DOSES_PER_DAY];
-        this.daysText.setText(`Day ${day}\n${timeOfDay}`);
+        const day = Math.floor(idx / CONFIG.rules.dosesPerDay) + 1;
+        const timeOfDay = CONFIG.timesOfDay[idx % CONFIG.rules.dosesPerDay];
+        this.daysText.setText(`${CONFIG.text.hud.dayWord} ${day}\n${timeOfDay}`);
+
         this.layoutDosesDisplay();
 
-        const required = this.currentRequiredColor();
-        this.requiredPillIcon.setTexture(`pill_${required}`);
+        if (this.movesText) {
+            this.movesText.setText(String(Math.max(0, this.state.moves)));
+        }
+
+        if (this.requiredPillIcon) {
+            const required = this.currentRequiredColor();
+            this.requiredPillIcon.setTexture(`pill_${required}`);
+        }
     }
 
     // ── Prescription dialog ───────────────────────────────────────────────────
@@ -218,8 +247,8 @@ export class Game extends Scene
             icon.setScale(0.75);
             items.push(icon);
 
-            const label = this.add.text(px, 54, PILL_NAMES[pills[i]], {
-                fontFamily: 'Arial', fontSize: '18px', color: PILL_LABEL_COLORS[pills[i]],
+            const label = this.add.text(px, 54, CONFIG.tokens[pills[i]].name, {
+                fontFamily: 'Arial', fontSize: '18px', color: CONFIG.tokens[pills[i]].labelColor,
             }).setOrigin(0.5);
             items.push(label);
 
@@ -405,8 +434,8 @@ export class Game extends Scene
 
         //  Only prescribed pills score; each overdose subtracts a penalty.
         //  Score may go negative — a negative final score is a loss.
-        const gained = prescribedThisPop * 10 * this.state.chainMultiplier;
-        const penalty = overThisPop * OVERDOSE_PENALTY;
+        const gained = prescribedThisPop * CONFIG.rules.scorePerDose * this.state.chainMultiplier;
+        const penalty = overThisPop * CONFIG.rules.overdosePenalty;
         this.state.score += gained - penalty;
 
         if (isPlayerMove) this.advancePrescription();
@@ -457,7 +486,7 @@ export class Game extends Scene
             } else if (this.pendingDialog) {
                 this.showPrescriptionDialog();
             } else if (
-                this.otherColorMoves >= 3 &&
+                this.otherColorMoves >= CONFIG.rules.shuffleAfterWrongMoves &&
                 !this.grid.hasValidMoveForColor(this.currentRequiredColor())
             ) {
                 this.triggerShuffle();
@@ -470,7 +499,8 @@ export class Game extends Scene
     /** True once overdoses reach double the prescribed pills (needs at least one
      *  prescribed dose taken, so a single early misstep can't end the game). */
     private isOverdoseFatal(): boolean {
-        return this.prescribedDoses > 0 && this.overDoses >= this.prescribedDoses * 2;
+        return this.prescribedDoses > 0 &&
+            this.overDoses >= this.prescribedDoses * CONFIG.rules.fatalOverdoseMultiplier;
     }
 
     private triggerShuffle(): void {
@@ -510,7 +540,7 @@ export class Game extends Scene
             this.state.prescription.prescriptionIndex++;
             this.state.prescription.stepIndex = 0;
             this.pendingDialog = true;
-            if (this.state.prescription.prescriptionIndex % DOSES_PER_DAY === 0) {
+            if (this.state.prescription.prescriptionIndex % CONFIG.rules.dosesPerDay === 0) {
                 this.audio.playDayAdvance();
             }
         }
@@ -569,8 +599,8 @@ export class Game extends Scene
         this.audio.playGameOver();
         const data: GameOverData = {
             score: this.state.score,
-            movesUsed: INITIAL_MOVES - this.state.moves,
-            won: this.state.score > 0,
+            movesUsed: CONFIG.rules.movesPerGame - this.state.moves,
+            won: this.state.score > CONFIG.rules.winScoreThreshold,
             reason,
         };
         this.time.delayedCall(600, () => {
