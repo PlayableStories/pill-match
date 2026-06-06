@@ -145,14 +145,17 @@ See **[FORKING.md](FORKING.md)** for the full breakdown of every config section.
 
 ## 🍴 Fork It & Tell Your Own Story
 
-The engine is intentionally decoupled from the story it tells, so Pill Match is a good base for telling a **different** story with the same mechanics — either by **re-skinning** it through config, or by **re-mechanic**-ing it in engine code.
+Pill Match is a good base for telling a **different** story with the same mechanics. There are two ways in:
+
+- **Level 1 — fork the code:** reskin via config, or change the mechanics in engine code.
+- **Level 2 — rebuild from a prompt:** recreate the game (or your own variant) by describing it to an AI builder.
 
 ```bash
 gh repo fork PlayableStories/pill-match --clone
 cd pill-match && npm install && npm run dev   # Node 18+
 ```
 
-**→ See [FORKING.md](FORKING.md) for the full guide** — fork & run, the central `gameConfig.ts`, and where to change the mechanics.
+**→ See [FORKING.md](FORKING.md) for the full guide** — the central `gameConfig.ts`, where to change the mechanics, and a ready-to-paste AI-builder prompt.
 
 ---
 
@@ -171,7 +174,7 @@ cd pill-match && npm install && npm run dev   # Node 18+
 | `src/game/config/prescriptions.ts` | Prescription definitions |
 | `src/game/types.ts` | Shared TypeScript types |
 | `public/` | Static assets served as-is |
-| `FORKING.md` | Guide to re-skinning and re-mechanic-ing the game |
+| `FORKING.md` | Forking guide — reskin, re-mechanic, or rebuild from an AI-builder prompt |
 | `DEVLOG.md` | Detailed development log of each file and decision |
 
 ---
